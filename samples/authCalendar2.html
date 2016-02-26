@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <title>AuthCalendar 2</title>
+   <link href='css/fullcalendar.css' rel='stylesheet'/>
+   <link href='css/fullcalendar.print.css' rel='stylesheet' media='print'/>
+
+   <script type="text/javascript">
+
+      var clientId = '1020443454327-r6ev6jep74mtqb1pp9aentg75v1l5j4n.apps.googleusercontent.com';
+      var apiKey = 'AIzaSyDvbmZLQjDm_qrkvpUl1kTTMhDnpokNmrI';
+      var scopes = 'https://www.googleapis.com/auth/calendar';
+
+
+      //add parameter apiKey
+      function handleClientLoad() {
+         gapi.client.setApiKey(apiKey);
+         gapi.auth.init(auth);
+
+      }
+      //login
+      function auth() {
+         gapi.auth.authorize({
+            'client_id': clientId,
+            'scope': scopes,
+            'immediate': false
+         },makeApiCall);
+
+      }
+      // Load the API and make an API call.  Display the results on the screen.
+      function makeApiCall() {
+         // Step 4: Load the Google+ API
+         gapi.client.load('calendar', 'v3').then(function () {
+            // Step 5: Assemble the API request
+            var request = gapi.client.calendar.events.list({
+                  'calendarId': 'm8lu1jllnie840ei5lhlihr1tc@group.calendar.google.com'
+            });
+            // Step 6: Execute the API request
+            request.then(function (resp) {
+
+               console.log('--- resp.result.items ---');
+               console.log(resp.result.items);
+
+               var eventsList = [];
+               var successArgs;
+               var successRes;
+
+               if (resp.result.error) {
+                  reportError('Google Calendar API: ' + data.error.message, data.error.errors);
+               }
+
+               else if (resp.result.items) {
+                  $.each(resp.result.items, function (i, entry) {
+                     var url = entry.htmlLink;
+
+                     eventsList.push({
+                        id: entry.id,
+                        title: entry.summary,
+                        start: entry.start.dateTime || entry.start.date, // try timed. will fall back to all-day
+                        end: entry.end.dateTime || entry.end.date, // same
+                        url: url,
+                        location: entry.location,
+                        description: entry.description,
+                        color:entry.color
+                     });
+                  });
+                  // call the success handler(s) and allow it to return a new events array
+                  successArgs = [eventsList].concat(Array.prototype.slice.call(arguments, 1)); // forward other jq args
+                  successRes = $.fullCalendar.applyAll(true, this, successArgs);
+                  if ($.isArray(successRes)) {
+                     return successRes;
+                  }
+               }
+
+               if (eventsList.length > 0) {
+                  console.log('--- eventsList ---');
+                  console.log(eventsList);
+                  // Here create your calendar but the events options is :
+                  //fullcalendar.events: eventsList;
+                  $('#calendar').fullCalendar({
+
+                     events: eventsList,
+                     selectable: true,
+                     selectHelper: true,
+                     currentTimezone: 'America/Bogota',
+                     editable: true,
+                     color:'red',
+
+                     select: function (start, end) {
+
+                        var title = prompt('Event Title:');
+
+                        if (title) {
+                           var eventData = {
+                              "colorId":10,
+                              "summary": title,
+                              "location": "Somewhere",
+                              "start": {
+                                 "dateTime": start
+                              },
+                              "end": {
+                                 "dateTime": end
+                              }
+
+
+                           };
+                           var newEvent =  {
+                            title:  title,
+                            start:  start,
+                            end:    end
+                            };
+                            $('#calendar').fullCalendar('renderEvent', newEvent, true); // stick? = true
+                           makeRpcRequest(eventData);
+                        }
+                        console.log('--- eventData ---');
+                        console.log(eventData);
+
+                        $('#calendar').fullCalendar('unselect');
+                     }
+                  });
+               }
+               //return eventsList;
+            }, function (reason) {
+               console.log('Error: ' + reason.result.error.message);
+            });
+         });
+      }
+      /***********************************************************************************/
+      function makeRpcRequest(eventData) {
+
+         console.log('--- eventData makeRpcRequest ---');
+         console.log(eventData);
+         gapi
+           .client
+           .load('calendar', 'v3')
+           .then(function () {
+              var request = gapi.client.calendar.events.insert({
+                 'calendarId': 'm8lu1jllnie840ei5lhlihr1tc@group.calendar.google.com',
+                 'resource': eventData
+              });
+
+              request.then(function (resp) {
+
+                 if (resp.result.error) {
+                    reportError('Google Calendar API: ' + data.error.message, data.error.errors);
+                 } else {
+                    console.log(resp);
+                    var creator = resp.result.creator.email;
+                    var calendarEntry = resp.result.htmlLink;
+
+                    console.log('--- Calendar entry successfully created by---');
+                    console.log(creator);
+                    console.log('--- dd ---');
+                    console.log(calendarEntry);
+                 }
+              }, function (reason) {
+                 console.log('Error: ' + reason.result.error.message);
+
+              });
+           });
+      }
+
+   </script>
+
+   <style>
+
+      body {
+         margin: 40px 10px;
+         padding: 0;
+         font-family: "Lucida Grande", Helvetica, Arial, Verdana, sans-serif;
+         font-size: 14px;
+      }
+
+      #calendar {
+         max-width: 900px;
+         margin: 0 auto;
+      }
+
+   </style>
+
+</head>
+
+<body>
+<button id="authorize-button" style="visibility: hidden">Authorize</button>
+<div id='calendar'></div>
+<script src="https://apis.google.com/js/client.js?onload=handleClientLoad"></script>
+
+<script src='lib/jquery.min.js'></script>
+<script src='lib/moment.min.js'></script>
+<script src='fullcalendar/fullcalendar.js'></script>
+<script src='fullcalendar/gcal.js'></script>
+</body>
+
+</html>
